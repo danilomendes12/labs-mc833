@@ -40,8 +40,10 @@ int main()
 			perror("simplex-talk: accept");
 			exit(1);
 		}
-		while (len = recv(new_s, buf, sizeof(buf), 0))
+		while (len = recv(new_s, buf, sizeof(buf), 0)){
 			fputs(buf, stdout);
+			send(new_s, buf, len, 0);
+		}
 		close(new_s);
 	}
 }
