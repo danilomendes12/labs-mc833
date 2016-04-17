@@ -13,7 +13,7 @@ int main(int argc, char * argv[])
 {
 	FILE *fp;
 	struct hostent *hp; /* hostent is a struct used to store info about a given host, such as host name, IPv4 address etc. */
-	struct sockaddr_in sin; /* sockaddr_in is a struct to store syscalls and functions that deal with internet addresses */
+	struct sockaddr_in sin; /* structure used by sockets to specify a local or remote address to connect a socket */
 	char *host;
 	char buf[MAX_LINE];
 	int s;
@@ -44,7 +44,7 @@ int main(int argc, char * argv[])
 		perror("simplex-talk: socket");
 		exit(1);
 	}
-    if (connect(s, (struct sockaddr *)&sin, sizeof(sin)) < 0) { /* Attempts to make a connection on a socket. Returns 0 if successful  */
+  if (connect(s, (struct sockaddr *)&sin, sizeof(sin)) < 0) { /* Attempts to make a connection on a socket. Returns 0 if successful  */
 		perror("simplex-talk: connect");
 		close(s);
 		exit(1);
