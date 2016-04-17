@@ -13,7 +13,8 @@ int main(int argc, char * argv[]){
 	
 	FILE *fp;
 	struct hostent *hp;
-	struct sockaddr_in sin;
+	struct sockaddr_in sin, end;
+	int addrlen = sizeof(end);
 	char *host;
 	char buf[MAX_LINE];
 	int s;
@@ -48,6 +49,12 @@ int main(int argc, char * argv[]){
 		perror("simplex-talk: connect");
 		close(s);
 		exit(1);
+	}
+
+	if (getsockname(s, (struct sockaddr *) &end, &addrlen) == 0) {
+		printf("Socket Local: \n");
+		printf("IP: #%s\n", inet_ntoa(end.sin_addr)); //Aqui é o problema
+		printf("#Porta: #%d\n", ntohs(end.sin_port));
 	}
 
 	/* main loop: get and send lines of text */
