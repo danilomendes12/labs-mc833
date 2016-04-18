@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <unistd.h>
 
 #define SERVER_PORT 31472
 #define MAX_PENDING 5
@@ -17,6 +18,7 @@ int main()
     char peer_ip_buf[INET_ADDRSTRLEN]; /* buf size for IPV4 only */
 	int len;
 	int s, new_s;
+    pid_t pid;
 
 	/* build address data structure */
 	bzero((char *)&sin, sizeof(sin));
@@ -37,22 +39,36 @@ int main()
 
 	/* wait for connection, then receive and print text */
 	while(1) {
-		if ((new_s = accept(s, (struct sockaddr *)&sin, &len)) < 0) {
+		
+        
+        if ((new_s = accept(s, (struct sockaddr *)&sin, &len)) < 0) {
 			perror("simplex-talk: accept");
 			exit(1);
 		}
 
-        if (getpeername(new_s, (struct sockaddr*)&sin, &len) == 0) {
-            inet_ntop(AF_INET, &sin.sin_addr, peer_ip_buf, sizeof peer_ip_buf);
-            printf("Socket do cliente: \n");
-            printf("IP: #%s\n", peer_ip_buf);
-            printf("#Porta: #%d\n", ntohs(sin.sin_port));
+        if ((pid = fork()) < 0) {
+            perror("fork");
+            close(new_s);
         }
-        
-        while (len = recv(new_s, buf, sizeof(buf), 0)){
-			fputs(buf, stdout);
-			send(new_s, buf, len, 0);
-		}
-		close(new_s);
+
+        else if (pid == 0) {
+            
+            close(s);
+            
+            if (getpeername(new_s, (struct sockaddr*)&sin, &len) == 0) {
+                inet_ntop(AF_INET, &sin.sin_addr, peer_ip_buf, sizeof peer_ip_buf);
+                printf("Socket do cliente: \n");
+                printf("IP: #%s\n", peer_ip_buf);
+                printf("#Porta: #%d\n", ntohs(sin.sin_port));
+            }
+            
+            while (len = recv(new_s, buf, sizeof(buf), 0)){
+                fputs(buf, stdout);
+                send(new_s, buf, len, 0);
+            }
+            close(new_s);
+            exit(0);
+        }
+        close(new_s);        
 	}
 }
