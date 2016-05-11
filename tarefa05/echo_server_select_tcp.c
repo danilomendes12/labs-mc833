@@ -58,11 +58,22 @@ main(int argc, char **argv)
 
 	for ( ; ; ) {
 		rset = allset;		/* structure assignment */
-		nready = select(maxfd+1, &rset, NULL, NULL, NULL); /* Check tarefa05 exercicio1 */
+		
+		if((nready = select(maxfd+1, &rset, NULL, NULL, NULL)) == 0){
+			perror("timeout error");
+			close(listenfd);
+			return 1;
+		}
 
         if (FD_ISSET(listenfd, &rset)) {	/* new client connection */ /* FD_ISSET returns a nonzero value (true) if listenfd is a member of the file descriptor set rset, and zero (false) otherwise. In this case, true means the socket listenfd is ready for reading */
 			clilen = sizeof(cliaddr);
-			connfd = accept(listenfd, (struct sockaddr *) &cliaddr, &clilen); /* accepts the first connection on the queue of pending connections, create a new socket with the same socket type protocol and address family as the specified socket, and allocate a new file descriptor for that socket */
+
+			if((connfd = accept(listenfd, (struct sockaddr *) &cliaddr, &clilen)) < 0){
+				perror("socket error");
+				close(listenfd);
+				return 1;
+			} 			
+
 			for (i = 0; i < FD_SETSIZE; i++)
 				if (client[i] < 0) {
 					client[i] = connfd;	/* save descriptor */
@@ -93,8 +104,11 @@ main(int argc, char **argv)
 					FD_CLR(sockfd, &allset); /* Removes sockfd from the file descriptor set allset. */
 					client[i] = -1;
 				} else
-					send(sockfd, buf, n, 0);/* sends a message on a socket. s is the socket, buf is the message, n is the message length, 0 is the the flag that specifies the type of transmission. Successful completion of send does not guarantee the message was delivered. A return of -1 indicates only locally-detected errors */
-
+					if(send(sockfd, buf, n, 0) < 0){
+						perror("message error");
+						close(sockfd);
+						return 1;
+					}
 				if (--nready <= 0)
 					break;				/* no more readable descriptors */
 			}
