@@ -58,7 +58,7 @@ main(int argc, char **argv)
 
 	for ( ; ; ) {
 		rset = allset;		/* structure assignment */
-		nready = select(maxfd+1, &rset, NULL, NULL, NULL); /* Check tarefa05 exercicio1 */
+		nready = select(maxfd+1, &rset, NULL, NULL, NULL); /* Check tarefa05 exercicio1/ TL;DR.: returns the number of sockets ready for reading */
 
         if (FD_ISSET(listenfd, &rset)) {	/* new client connection */ /* FD_ISSET returns a nonzero value (true) if listenfd is a member of the file descriptor set rset, and zero (false) otherwise. In this case, true means the socket listenfd is ready for reading */
 			clilen = sizeof(cliaddr);
@@ -75,7 +75,7 @@ main(int argc, char **argv)
 
 			FD_SET(connfd, &allset);	/* add new descriptor to set */
 			if (connfd > maxfd)
-				maxfd = connfd;			/* for select */
+				maxfd = connfd;			/* for select, used instead of FD_SETSIZE for better performance */
 			if (i > maxi)
 				maxi = i;				/* max index in client[] array */
 
@@ -84,18 +84,19 @@ main(int argc, char **argv)
 		}
 
 		for (i = 0; i <= maxi; i++) {	/* check all clients for data */
-			if ( (sockfd = client[i]) < 0)
+			if ( (sockfd = client[i]) < 0) /* if there is no descriptor saved, continue */
 				continue;
 			if (FD_ISSET(sockfd, &rset)) { /* If socket sockfd is ready for reading */
-				if ( (n = read(sockfd, buf, MAXLINE)) == 0) {
+				if ( (n = read(sockfd, buf, MAXLINE)) == 0) { /* read and puto message into buf. zero returned means end of connection */
 						/* connection closed by client */
 					close(sockfd);
 					FD_CLR(sockfd, &allset); /* Removes sockfd from the file descriptor set allset. */
 					client[i] = -1;
 				} else
-					send(sockfd, buf, n, 0);/* sends a message on a socket. s is the socket, buf is the message, n is the message length, 0 is the the flag that specifies the type of transmission. Successful completion of send does not guarantee the message was delivered. A return of -1 indicates only locally-detected errors */
+                    fputs(buf, stdout); /* NOT IN THE ORIGINAL FILE - MODIFIED BY GRIJÓ */
+					send(sockfd, buf, n, 0); /* sends a message on a socket. s is the socket, buf is the message, n is the message length, 0 is the the flag that specifies the type of transmission. Successful completion of send does not guarantee the message was delivered. A return of -1 indicates only locally-detected errors */
 
-				if (--nready <= 0)
+				if (--nready <= 0) /* decrements the number of sockets ready for connections */
 					break;				/* no more readable descriptors */
 			}
 		}
