@@ -47,7 +47,7 @@ int main(int argc, char * argv[]){
     }
     
     if (connect(s, (struct sockaddr *) &sin, sizeof(sin)) < 0) {
-        perror("simplex-talk: socket");
+        perror("simplex-talk: connect");
         close(s);
         exit(1);
     }
@@ -61,6 +61,8 @@ int main(int argc, char * argv[]){
         if ((len = recv(s, buf, MAX_LINE, 0)) > 0) {
             printf("Pacote UDP recebido do IP: %s Porta: %d\n", inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
             fputs(buf, stdout);
+        } else {
+            perror("Server not found");
         }
     }
 }
