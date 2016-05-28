@@ -7,6 +7,7 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <ctype.h>
 
 
 #define SERVER_PORT 56789
@@ -14,22 +15,31 @@
 
 int main(int argc, char * argv[]){
     
-    FILE *fp;
     struct hostent *hp;
     struct sockaddr_in sin, end;
     socklen_t addrlen = sizeof(end);
     char local_ip_buf[INET_ADDRSTRLEN]; /* buf size for IPV4 only */
-    char *host;
+    char *host, *protocol;
     char buf[MAX_LINE];
     int s;
     int len;
-    if (argc==2) {
+    if (argc==3) {
         host = argv[1];
+        protocol = argv[2];
+        
+        if (strcmp(protocol,"udp") != 0 && strcmp(protocol, "tcp") != 0) {
+            fprintf(stderr, "protocol must be udp or tcp\n");
+            exit(1);
+        }
     }
     else {
-        fprintf(stderr, "usage: ./client host\n");
+        fprintf(stderr, "usage: ./client host protocol\n");
         exit(1);
     }
+    
+    protocol[0] = toupper(protocol[0]);
+    protocol[1] = toupper(protocol[1]);
+    protocol[2] = toupper(protocol[2]);
     
     /* translate host name into peer’s IP address */
     hp = gethostbyname(host);
@@ -44,11 +54,18 @@ int main(int argc, char * argv[]){
     bcopy(hp->h_addr, (char *)&sin.sin_addr, hp->h_length);
     sin.sin_port = htons(SERVER_PORT);
     
-    /* active open */
-    if ((s = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("simplex-talk: socket");
-        exit(1);
+    if (strcmp(protocol,"UDP") == 0) {
+        if ((s = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
+            perror("simplex-talk: socket");
+            exit(1);
+        }
+    } else {
+        if ((s = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+            perror("simplex-talk: socket");
+            exit(1);
+        }
     }
+    
     if (connect(s, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
         perror("simplex-talk: connect");
         close(s);
@@ -57,18 +74,23 @@ int main(int argc, char * argv[]){
     
     if (getsockname(s, (struct sockaddr *) &end, &addrlen) == 0) {
         inet_ntop(AF_INET, &end.sin_addr, local_ip_buf, sizeof local_ip_buf);
-        printf("Socket Local: \n");
-        printf("IP: #%s\n", local_ip_buf);
-        printf("#Porta: #%d\n", ntohs(end.sin_port));
+        printf("Socket Local: ");
+        printf("IP %s ", local_ip_buf);
+        printf("#Porta %d\n", ntohs(end.sin_port));
     }
     
     /* main loop: get and send lines of text */
     while (fgets(buf, sizeof(buf), stdin)) {
+        
         buf[MAX_LINE-1] = '\0';
-        len = strlen(buf) + 1;
-        send(s, buf, len, 0);
-        if((len = recv(s, buf, sizeof(buf), 0)) > 0){
+        send(s, buf, strlen(buf) + 1, 0);
+        
+        if((len = recv(s, buf, MAX_LINE, 0)) > 0){
+            printf("Pacote recebido do IP: %s Porta: %d\n", inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
+            printf("Mensagem: ");
             fputs(buf, stdout);
+        } else {
+            perror("Server not found");
         }
     }
 }

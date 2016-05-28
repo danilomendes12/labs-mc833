@@ -33,7 +33,7 @@ int main()
     servaddr.sin_port = htons(SERVER_PORT);
     
     /* setup passive open */
-    if ((listenfd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+    if ((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("simplex-talk: socket");
         exit(1);
     }
@@ -61,7 +61,7 @@ int main()
     
     listen(listenfd, MAX_PENDING);
     
-    maxfd = max(listenfd, udpfd) + 1;			/* initialize */
+    maxfd = max(listenfd, udpfd);			/* initialize */
     FD_ZERO(&allset); /* Initializes the file descriptors of the file descriptors set allset with 0 bits */
     FD_SET(listenfd, &allset); /* Adds listenfd to the file descriptor set allset */
     FD_SET(udpfd, &allset);
@@ -79,7 +79,6 @@ int main()
         
         if (FD_ISSET(listenfd, &rset)) {
             
-            clilen = sizeof(cliaddr);
             if ((connfd = accept(listenfd, (struct sockaddr *) &cliaddr, &clilen)) < 0) {
                 perror("simplex-talk: accept");
                 close(listenfd);
@@ -97,14 +96,19 @@ int main()
                 
                 close(listenfd);
                 
-                if (getpeername(connfd, (struct sockaddr*)&servaddr, (socklen_t*)&len) == 0) {
-                    inet_ntop(AF_INET, &servaddr.sin_addr, peer_ip_buf, sizeof peer_ip_buf);
-                    printf("Socket do cliente: \n");
-                    printf("IP: #%s\n", peer_ip_buf);
-                    printf("#Porta: #%d\n", ntohs(servaddr.sin_port));
-                }
+                len = sizeof(servaddr);
                 
                 while ((len = recv(connfd, buf, MAX_LINE, 0)) > 0){
+                    
+                    if (getpeername(connfd, (struct sockaddr*)&servaddr, (socklen_t*)&len) == 0) {
+                        inet_ntop(AF_INET, &servaddr.sin_addr, peer_ip_buf, sizeof peer_ip_buf);
+                        printf("Socket do cliente TCP: ");
+                        printf("IP %s ", peer_ip_buf);
+                        printf("#Porta %d\n", ntohs(servaddr.sin_port));
+                    }else
+                        perror("");
+                    
+                    printf("Mensagem: ");
                     fputs(buf, stdout);
                     send(connfd, buf, len, 0);
                 }
@@ -119,14 +123,18 @@ int main()
         if (FD_ISSET(udpfd, &rset)) {
             
             clilen = sizeof(cliaddr);
-            
+
             if((len = recvfrom(udpfd, buf, MAX_LINE, 0, (struct sockaddr *) &cliaddr, &clilen)) < 0){
                 perror("socket error");
                 close(udpfd);
                 return 1;
             }
             
-            printf("Pacote UDP recebido do IP: %s Porta: %d\n", inet_ntoa(cliaddr.sin_addr), ntohs(cliaddr.sin_port));
+            printf("Socket do cliente UDP: ");
+            printf("IP %s ", inet_ntoa(cliaddr.sin_addr));
+            printf("#Porta %d\n", ntohs(cliaddr.sin_port));
+            
+            printf("Mensagem: ");
             fputs(buf, stdout);
             
             if(sendto(udpfd, buf, strlen(buf) + 1, 0, (struct sockaddr *) &cliaddr, clilen) < 0) {
