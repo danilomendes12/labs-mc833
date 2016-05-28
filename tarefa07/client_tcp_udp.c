@@ -22,7 +22,7 @@ int main(int argc, char * argv[]){
     char *host, *protocol;
     char buf[MAX_LINE];
     int s;
-    int len;
+    ssize_t len;
     if (argc==3) {
         host = argv[1];
         protocol = argv[2];

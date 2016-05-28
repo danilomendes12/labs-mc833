@@ -79,6 +79,7 @@ int main()
         
         if (FD_ISSET(listenfd, &rset)) {
             
+
             if ((connfd = accept(listenfd, (struct sockaddr *) &cliaddr, &clilen)) < 0) {
                 perror("simplex-talk: accept");
                 close(listenfd);
@@ -113,10 +114,9 @@ int main()
                     send(connfd, buf, len, 0);
                 }
                 close(connfd);
-                
-                if (--nready <= 0)
-                    continue;				/* no more readable descriptors */
+                exit(0);
             }
+
             close(connfd);
         }
         
@@ -142,9 +142,6 @@ int main()
                 close(udpfd);
                 return 1;
             }
-            
-            if (--nready <= 0)
-                continue;				/* no more readable descriptors */
         }
     }
 }
