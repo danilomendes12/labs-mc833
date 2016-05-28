@@ -44,11 +44,6 @@ int main()
         exit(1);
     }
     
-    if ((setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval))) < 0) {
-        perror("simplex-talk: setsockopt");
-        exit(1);
-    }
-    
     if ((bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr))) < 0) {
         perror("simplex-talk: bind");
         exit(1);
@@ -56,6 +51,11 @@ int main()
     
     if ((bind(udpfd, (struct sockaddr *)&servaddr, sizeof(servaddr))) < 0) {
         perror("simplex-talk: bind");
+        exit(1);
+    }
+    
+    if ((setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval))) < 0) {
+        perror("simplex-talk: setsockopt");
         exit(1);
     }
     
