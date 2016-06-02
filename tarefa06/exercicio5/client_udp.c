@@ -55,7 +55,7 @@ int main(int argc, char * argv[]){
         
         while ((len = recvfrom(s, buf, MAX_LINE, 0, (struct sockaddr *) &rcv, &rcvlen)) > 0) {
             
-            if (ntohs(rcv.sin_port) == SERVER_PORT) {
+            if (ntohs(rcv.sin_port) == SERVER_PORT && strcmp(inet_ntoa(rcv.sin_addr), "127.0.0.1") == 0 ) {
                 printf("Pacote UDP recebido do IP: %s Porta: %d\n", inet_ntoa(rcv.sin_addr), ntohs(rcv.sin_port));
                 fputs(buf, stdout);
                 break;
