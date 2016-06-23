@@ -5,7 +5,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-
+#include <unistd.h>
 #define SERVER_PORT 56789
 #define MAX_LINE 256
 
