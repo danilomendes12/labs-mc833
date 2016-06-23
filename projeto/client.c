@@ -20,8 +20,11 @@ int main(int argc, char * argv[]){
 	char *svport;
 	char *username;
 	char buf[MAX_LINE];
+	char login_msg[MAX_LINE];
 	int s;
 	int len;
+	int login = 0;
+
 	if (argc==4) {
 		host = argv[1];
 		svport = argv[2];
@@ -56,13 +59,13 @@ int main(int argc, char * argv[]){
 		perror("simplex-talk: connect");
 		close(s);
 		exit(1);
-	}
-
-	if (getsockname(s, (struct sockaddr *) &end, &addrlen) == 0) {
-        inet_ntop(AF_INET, &end.sin_addr, local_ip_buf, sizeof local_ip_buf);
-		printf("Socket Local: \n");
-		printf("IP: #%s\n", local_ip_buf);
-		printf("#Porta: #%d\n", ntohs(end.sin_port));
+	}else{
+		strcpy(login_msg, "LOGIN ");
+		strcat(login_msg, username);
+		login_msg[MAX_LINE-1] = '\0';
+		len = strlen(login_msg) + 1;
+		send(s, login_msg, len, 0);
+		printf("$[%s]", username);
 	}
 
 	/* main loop: get and send lines of text */
@@ -70,8 +73,6 @@ int main(int argc, char * argv[]){
 		buf[MAX_LINE-1] = '\0';
 		len = strlen(buf) + 1;
 		send(s, buf, len, 0);
-		if(len = recv(s, buf, sizeof(buf), 0)){
-			fputs(buf, stdout);
-		}
+		printf("$[%s]", username);
 	}
 }

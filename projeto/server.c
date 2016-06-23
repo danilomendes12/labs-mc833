@@ -21,6 +21,8 @@ main(int argc, char **argv)
     char                *svport;
     socklen_t			clilen;
     struct sockaddr_in	cliaddr, servaddr;
+    char usernames[20][20];
+
 
     if (argc==2) {
         svport = argv[1];
@@ -60,8 +62,7 @@ main(int argc, char **argv)
     for ( ; ; ) {
         rset = allset;		/* structure assignment */
         
-        if((nready = select(maxfd+1, &rset, NULL, NULL, NULL)) == 0){ /* Check tarefa05 exercicio1 TL;DR.: returns the number of sockets ready for reading */
-            perror("timeout error");
+        if((nready = select(maxfd+1, &rset, NULL, NULL, NULL)) == 0){ 
             close(listenfd);
             return 1;
         }
@@ -102,18 +103,15 @@ main(int argc, char **argv)
                 if ( (n = read(sockfd, buf, MAXLINE)) == 0) { /* read and puto message into buf. zero returned means end of connection */
                     /* connection closed by client */
                     close(sockfd);
-                    FD_CLR(sockfd, &allset); /* Removes sockfd from the file descriptor set allset. */
+                    FD_CLR(sockfd, &allset);
                     client[i] = -1;
+                    strcpy(usernames[i], "");
                 } else {
-                    fputs(buf, stdout); /* NOT IN THE ORIGINAL FILE - MODIFIED BY GRIJÓ */
-                    if(send(sockfd, buf, n, 0) < 0) { /* sends a message on a socket. s is the socket, buf is the message, n is the message length, 0 is the the flag that specifies the type of transmission. Successful completion of send does not guarantee the message was delivered. A return of -1 indicates only locally-detected errors */
-                        perror("message error");
-                        close(sockfd);
-                        return 1;
-                    }
+                    fputs(buf, stdout);
+                    //BUF EH A MENSAGEM RECEBIDA
                 }
                 if (--nready <= 0)
-                    break;				/* no more readable descriptors */
+                    break;			
             }
         }
     }
