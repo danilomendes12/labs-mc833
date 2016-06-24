@@ -22,12 +22,12 @@ main(int argc, char **argv)
     socklen_t			clilen;
     struct sockaddr_in	cliaddr, servaddr;
     char usernames[20][20];
-
-
+    
+    
     if (argc==2) {
         svport = argv[1];
     }
-
+    
     int portnumber = atoi(svport);
     
     if ((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {  /* Return socket file descriptor(positive integer) if successful  */
@@ -62,7 +62,7 @@ main(int argc, char **argv)
     for ( ; ; ) {
         rset = allset;		/* structure assignment */
         
-        if((nready = select(maxfd+1, &rset, NULL, NULL, NULL)) == 0){ 
+        if((nready = select(maxfd+1, &rset, NULL, NULL, NULL)) == 0){
             close(listenfd);
             return 1;
         }
@@ -111,7 +111,7 @@ main(int argc, char **argv)
                     //BUF EH A MENSAGEM RECEBIDA
                 }
                 if (--nready <= 0)
-                    break;			
+                    break;
             }
         }
     }
