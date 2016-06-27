@@ -5,24 +5,33 @@
 #include <stdlib.h>
 #include <sys/select.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define LISTENQ 5
 #define MAXLINE 64
 #define SERV_PORT 56789
 
-int
-main(int argc, char **argv)
+typedef struct client{ /* represents a client */
+    int fd;
+    char username[MAXLINE];
+    bool status;    /* false: offline, true: online */
+}client;
+
+int getClientData(client *, char *, int);
+
+int main(int argc, char **argv)
 {
-    int					i, maxi, maxfd, listenfd, connfd, sockfd;
-    int					nready, client[FD_SETSIZE];
-    ssize_t				n;
-    fd_set				rset, allset; /* fd_set is a data type that represents file descriptor sets for the select function. It's actually a bit array */
+    int					i, j, maxi, maxfd, listenfd, connfd, sockfd;
+    int                 client_amount; /* Actually client amount -1 */
+    int					nready;
+    ssize_t             n;
+    client              clients[FD_SETSIZE];
+    fd_set				rset, allset; /* fd_set represents fd sets for the select function. It's a bit array */
     char				buf[MAXLINE];
     char                *svport;
     socklen_t			clilen;
     struct sockaddr_in	cliaddr, servaddr;
     char usernames[20][20];
-    
     
     if (argc==2) {
         svport = argv[1];
@@ -30,7 +39,7 @@ main(int argc, char **argv)
     
     int portnumber = atoi(svport);
     
-    if ((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {  /* Return socket file descriptor(positive integer) if successful  */
+    if ((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {  /* Return socket fd(positive integer) if successful  */
         perror("socket error");
         return 1;
     }
@@ -54,8 +63,11 @@ main(int argc, char **argv)
     
     maxfd = listenfd;			/* initialize */
     maxi = -1;					/* index into client[] array */
-    for (i = 0; i < FD_SETSIZE; i++) /* FD_SETSIZE indicates the maximum number of file descriptors a FD_SET object can hold info about. If a fd is as high as FD_SETSIZE that fd cannot be put into an fd_set */
-        client[i] = -1;			/* -1 indicates available entry */
+    for (i = 0; i < FD_SETSIZE; i++){ /* FD_SETSIZE indicates the maximum number of file descriptors a FD_SET object can hold info about. If a fd is as high as FD_SETSIZE that fd cannot be put into an fd_set */
+        clients[i].fd = -1;			/* -1 indicates available entry */
+        strcpy(clients[i].username, "");
+        clients[i].status = false;
+    }
     FD_ZERO(&allset); /* Initializes the file descriptors of the file descriptors set allset with 0 bits */
     FD_SET(listenfd, &allset); /* Adds listenfd to the file descriptor set allset */
     
@@ -76,12 +88,9 @@ main(int argc, char **argv)
                 return 1;
             }
             
-            for (i = 0; i < FD_SETSIZE; i++)
-                if (client[i] < 0) {
-                    client[i] = connfd;	/* save descriptor */
-                    break;
-                }
-            if (i == FD_SETSIZE) {
+            client_amount = getClientData(clients, buf, connfd);
+            
+            if (client_amount == FD_SETSIZE) {
                 perror("too many clients");
                 exit(1);
             }
@@ -89,30 +98,101 @@ main(int argc, char **argv)
             FD_SET(connfd, &allset);	/* add new descriptor to set */
             if (connfd > maxfd)
                 maxfd = connfd;			/* for select, used instead of FD_SETSIZE for better performance */
-            if (i > maxi)
-                maxi = i;				/* max index in client[] array */
+            if (client_amount > maxi)
+                maxi = client_amount;	/* max index in client[] array */
             
             if (--nready <= 0)
                 continue;				/* no more readable descriptors */
         }
         
         for (i = 0; i <= maxi; i++) {	/* check all clients for data */
-            if ( (sockfd = client[i]) < 0) /* if there is no descriptor saved, continue */
+            if ( (sockfd = clients[i].fd) < 0) /* if there is no descriptor saved, continue */
                 continue;
-            if (FD_ISSET(sockfd, &rset)) { /* If socket sockfd is ready for reading */
+            if (FD_ISSET(sockfd, &rset)) { /* If sockfd is ready for reading */
                 if ( (n = read(sockfd, buf, MAXLINE)) == 0) { /* read and puto message into buf. zero returned means end of connection */
                     /* connection closed by client */
                     close(sockfd);
                     FD_CLR(sockfd, &allset);
-                    client[i] = -1;
+                    clients[i].fd = -1;
+                    clients[i].status = false;
                     strcpy(usernames[i], "");
                 } else {
-                    fputs(buf, stdout);
-                    //BUF EH A MENSAGEM RECEBIDA
+                    if (strcmp(buf, "SEND") == 0) {
+                        
+                    } else if (strcmp(buf, "CREATEG") == 0) {
+                        
+                    } else if (strcmp(buf, "JOING") == 0) {
+                        
+                    } else if (strcmp(buf, "SENDG") == 0) {
+                        
+                    } else if (strcmp(buf, "WHO\n") == 0) {
+                        printf("USER | STATUS\n");
+                        for (j = 0; j <= maxi; j++) {
+                            printf("%s | ", clients[j].username);
+                            if (clients[j].status)
+                                printf("online\n");
+                            else
+                                printf("offline\n");
+                        }
+                    } else if (strcmp(buf, "EXIT") == 0) {
+                        
+                    } else {
+                        //BUF EH A MENSAGEM RECEBIDA
+                        fputs(buf, stdout);
+                        //                    if (!strcmp(buf, "LOGIN\n")) {
+                        //                        strcpy(usernames[i], "");
+                        //                    }
+                    }
                 }
                 if (--nready <= 0)
                     break;
             }
         }
     }
+}
+
+int getClientData(client *clients, char *buf, int connfd) {
+    
+    int i;
+    ssize_t n = 0;
+    char bufsend[MAXLINE];
+    
+    //    if (n == 0) { /* Test to guarantee it will read only once */
+    if ( (n = read(connfd, buf, MAXLINE)) == 0) {
+        close(connfd);
+        clients[i].fd = -1;
+    }
+    //    }
+    
+    for (i = 0; i < FD_SETSIZE; i++) {
+        
+        if (clients[i].fd < 0) {
+            
+            if (strcmp(clients[i].username, "") == 0) { /* New User */
+                clients[i].fd = connfd;
+                clients[i].status = true;
+                strcpy(clients[i].username, buf);
+                printf("LOGIN %s\n", clients[i].username);
+                strcpy(bufsend, "Welcome, ");
+                strcat(bufsend, clients[i].username);
+                strcat(bufsend, "!\n");
+                break;
+            } else if (strcmp(clients[i].username, buf) == 0) { /* Old user logging in, checks if this is the correct position for this user */
+                clients[i].fd = connfd;
+                clients[i].status = true;
+                printf("LOGIN %s\n", clients[i].username);
+                strcpy(bufsend, "Welcome Back, ");
+                strcat(bufsend, clients[i].username);
+                strcat(bufsend, "!\n");
+                break;
+            }
+        } else if (strcmp(clients[i].username, buf) == 0) {
+            strcpy(bufsend, "Username taken, get out!\n");
+            break;
+        }
+    }
+    
+    send(connfd, bufsend, sizeof(bufsend), 0);
+    
+    return i;
 }

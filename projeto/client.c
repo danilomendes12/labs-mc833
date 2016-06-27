@@ -22,7 +22,7 @@ int main(int argc, char * argv[]){
     char buf[MAX_LINE];
     char login_msg[MAX_LINE];
     int s;
-    int len;
+    long len;
     int login = 0;
     int portnumber;
     
@@ -61,13 +61,18 @@ int main(int argc, char * argv[]){
         close(s);
         exit(1);
     }else{
-        strcpy(login_msg, "LOGIN ");
         strcat(login_msg, username);
-        strcat(login_msg, "\n");
         login_msg[MAX_LINE-1] = '\0';
         len = strlen(login_msg) + 1;
         send(s, login_msg, len, 0);
-        printf("$[%s]", username);
+        if((len = recv(s, buf, sizeof(buf), 0))){
+            fputs(buf, stdout);
+            if (strcmp(buf, "Username taken, get out!\n") == 0) {
+                close(s);
+                exit(1);
+            }
+        }
+        printf("$[%s] ", username);
     }
     
     /* main loop: get and send lines of text */
@@ -75,6 +80,6 @@ int main(int argc, char * argv[]){
         buf[MAX_LINE-1] = '\0';
         len = strlen(buf) + 1;
         send(s, buf, len, 0);
-        printf("$[%s]", username);
+        printf("$[%s] ", username);
     }
 }
