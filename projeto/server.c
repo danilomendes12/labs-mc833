@@ -31,7 +31,7 @@ int main(int argc, char **argv)
     char                *svport;
     socklen_t			clilen;
     struct sockaddr_in	cliaddr, servaddr;
-    char usernames[20][20];
+    //    char usernames[20][20];
     
     if (argc==2) {
         svport = argv[1];
@@ -115,17 +115,20 @@ int main(int argc, char **argv)
                     FD_CLR(sockfd, &allset);
                     clients[i].fd = -1;
                     clients[i].status = false;
-                    strcpy(usernames[i], "");
+                    printf("LOGOUT %s\n", clients[i].username);
+                    //                    strcpy(usernames[i], "");
                 } else {
-                    if (strcmp(buf, "SEND") == 0) {
+                    if (strcmp(buf, "SEND\n") == 0) {
                         
-                    } else if (strcmp(buf, "CREATEG") == 0) {
+                    } else if (strcmp(buf, "CREATEG\n") == 0) {
                         
-                    } else if (strcmp(buf, "JOING") == 0) {
+                    } else if (strcmp(buf, "JOING\n") == 0) {
                         
-                    } else if (strcmp(buf, "SENDG") == 0) {
+                    } else if (strcmp(buf, "SENDG\n") == 0) {
                         
                     } else if (strcmp(buf, "WHO\n") == 0) {
+                        
+                        send(sockfd, "User List printed on server\n", sizeof("User List printed on server\n"), 0);
                         printf("USER | STATUS\n");
                         for (j = 0; j <= maxi; j++) {
                             printf("%s | ", clients[j].username);
@@ -134,14 +137,17 @@ int main(int argc, char **argv)
                             else
                                 printf("offline\n");
                         }
-                    } else if (strcmp(buf, "EXIT") == 0) {
+                    } else if (strcmp(buf, "EXIT\n") == 0) {
                         
+                        send(sockfd, "LOGOUT\n", sizeof("LOGOUT\n"), 0);
+                        close(sockfd);
+                        FD_CLR(sockfd, &allset);
+                        clients[i].fd = -1;
+                        clients[i].status = false;
+                        printf("LOGOUT %s\n", clients[i].username);
                     } else {
-                        //BUF EH A MENSAGEM RECEBIDA
                         fputs(buf, stdout);
-                        //                    if (!strcmp(buf, "LOGIN\n")) {
-                        //                        strcpy(usernames[i], "");
-                        //                    }
+                        send(sockfd, "Message printed on the server\n", sizeof("Message printed on the server\n"), 0);
                     }
                 }
                 if (--nready <= 0)
@@ -157,15 +163,15 @@ int getClientData(client *clients, char *buf, int connfd) {
     ssize_t n = 0;
     char bufsend[MAXLINE];
     
-    //    if (n == 0) { /* Test to guarantee it will read only once */
-    if ( (n = read(connfd, buf, MAXLINE)) == 0) {
-        close(connfd);
-        clients[i].fd = -1;
-    }
-    //    }
-    
     for (i = 0; i < FD_SETSIZE; i++) {
-        
+    
+        if (n == 0) { /* Test to guarantee it will read only once */
+            if ( (n = read(connfd, buf, MAXLINE)) == 0) {
+                close(connfd);
+                clients[i].fd = -1;
+            }
+        }
+    
         if (clients[i].fd < 0) {
             
             if (strcmp(clients[i].username, "") == 0) { /* New User */
@@ -186,8 +192,8 @@ int getClientData(client *clients, char *buf, int connfd) {
                 strcat(bufsend, "!\n");
                 break;
             }
-        } else if (strcmp(clients[i].username, buf) == 0) {
-            strcpy(bufsend, "Username taken, get out!\n");
+        } else if (strcmp(clients[i].username, buf) == 0) { /* Check if the username is already taken */
+            strcpy(bufsend, "Username taken, try anoter one.\n");
             break;
         }
     }

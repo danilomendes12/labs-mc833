@@ -11,11 +11,11 @@
 
 int main(int argc, char * argv[]){
     
-    FILE *fp;
+//    FILE *fp;
     struct hostent *hp;
-    struct sockaddr_in sin, end;
-    int addrlen = sizeof(end);
-    char local_ip_buf[INET_ADDRSTRLEN]; /* buf size for IPV4 only */
+    struct sockaddr_in sin;
+//    int addrlen = sizeof(end);
+//    char local_ip_buf[INET_ADDRSTRLEN]; /* buf size for IPV4 only */
     char *host;
     char *svport;
     char *username;
@@ -23,7 +23,7 @@ int main(int argc, char * argv[]){
     char login_msg[MAX_LINE];
     int s;
     long len;
-    int login = 0;
+//    int login = 0;
     int portnumber;
     
     if (argc==4) {
@@ -65,12 +65,14 @@ int main(int argc, char * argv[]){
         login_msg[MAX_LINE-1] = '\0';
         len = strlen(login_msg) + 1;
         send(s, login_msg, len, 0);
-        if((len = recv(s, buf, sizeof(buf), 0))){
+        if((len = recv(s, buf, sizeof(buf), 0)) > 0){
             fputs(buf, stdout);
-            if (strcmp(buf, "Username taken, get out!\n") == 0) {
+            if (strcmp(buf, "Username taken, try anoter one.\n") == 0) {
                 close(s);
                 exit(1);
             }
+        } else {
+            perror("Server not found");
         }
         printf("$[%s] ", username);
     }
@@ -80,6 +82,15 @@ int main(int argc, char * argv[]){
         buf[MAX_LINE-1] = '\0';
         len = strlen(buf) + 1;
         send(s, buf, len, 0);
+        if((len = recv(s, buf, sizeof(buf), 0)) > 0){
+            fputs(buf, stdout);
+            if (strcmp(buf, "LOGOUT\n") == 0) {
+                close(s);
+                exit(1);
+            }
+        } else {
+            perror("Server not found");
+        }
         printf("$[%s] ", username);
     }
 }
