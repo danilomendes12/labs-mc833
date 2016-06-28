@@ -3,9 +3,12 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <termios.h>
+
 #define SERVER_PORT 56789
 #define MAX_LINE 256
 
@@ -17,9 +20,10 @@ int main(int argc, char * argv[]){
 //    int addrlen = sizeof(end);
 //    char local_ip_buf[INET_ADDRSTRLEN]; /* buf size for IPV4 only */
     char *host;
-    char *svport;
+    char *svport = NULL;
     char *username;
     char buf[MAX_LINE];
+    char recv_msg[MAX_LINE];
     char login_msg[MAX_LINE];
     int s;
     long len;
@@ -56,6 +60,7 @@ int main(int argc, char * argv[]){
         perror("simplex-talk: socket");
         exit(1);
     }
+
     if (connect(s, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
         perror("simplex-talk: connect");
         close(s);
@@ -76,21 +81,24 @@ int main(int argc, char * argv[]){
         }
         printf("$[%s] ", username);
     }
-    
+
+
     /* main loop: get and send lines of text */
-    while (fgets(buf, sizeof(buf), stdin)) {
-        buf[MAX_LINE-1] = '\0';
-        len = strlen(buf) + 1;
-        send(s, buf, len, 0);
-        if((len = recv(s, buf, sizeof(buf), 0)) > 0){
-            fputs(buf, stdout);
-            if (strcmp(buf, "LOGOUT\n") == 0) {
-                close(s);
-                exit(1);
-            }
-        } else {
-            perror("Server not found");
-        }
-        printf("$[%s] ", username);
-    }
+    while(1){
+	    if(fgets(buf, sizeof(buf), stdin) != NULL) {
+	    	buf[MAX_LINE-1] = '\0';
+	        len = strlen(buf) + 1;
+	        send(s, buf, len, 0);
+	    }
+
+	    if((len = recv(s, recv_msg, sizeof(recv_msg), 0)) > 0){
+	        fputs(recv_msg, stdout);
+	        if (strcmp(recv_msg, "LOGOUT\n") == 0) {
+	            close(s);
+	            exit(1);
+	        }
+	        printf("$[%s] ", username);
+	    }
+
+	}
 }
