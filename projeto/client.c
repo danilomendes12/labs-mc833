@@ -8,17 +8,21 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <termios.h>
+#include <fcntl.h>
 
 #define SERVER_PORT 56789
 #define MAX_LINE 256
 
+void unblockFiles(FILE *);
+void unblockFileDescriptors(int);
+
 int main(int argc, char * argv[]){
     
-//    FILE *fp;
+    //    FILE *fp;
     struct hostent *hp;
     struct sockaddr_in sin;
-//    int addrlen = sizeof(end);
-//    char local_ip_buf[INET_ADDRSTRLEN]; /* buf size for IPV4 only */
+    //    int addrlen = sizeof(end);
+    //    char local_ip_buf[INET_ADDRSTRLEN]; /* buf size for IPV4 only */
     char *host;
     char *svport = NULL;
     char *username;
@@ -27,7 +31,7 @@ int main(int argc, char * argv[]){
     char login_msg[MAX_LINE];
     int s;
     long len;
-//    int login = 0;
+    //    int login = 0;
     int portnumber;
     
     if (argc==4) {
@@ -60,7 +64,7 @@ int main(int argc, char * argv[]){
         perror("simplex-talk: socket");
         exit(1);
     }
-
+    
     if (connect(s, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
         perror("simplex-talk: connect");
         close(s);
@@ -81,24 +85,45 @@ int main(int argc, char * argv[]){
         }
         printf("$[%s] ", username);
     }
-
-
+    
+    unblockFiles(stdin);
+    unblockFileDescriptors(s);
+    
     /* main loop: get and send lines of text */
     while(1){
-	    if(fgets(buf, sizeof(buf), stdin) != NULL) {
-	    	buf[MAX_LINE-1] = '\0';
-	        len = strlen(buf) + 1;
-	        send(s, buf, len, 0);
-	    }
+        
+        if(fgets(buf, sizeof(buf), stdin) != NULL) {
+            buf[MAX_LINE-1] = '\0';
+            len = strlen(buf) + 1;
+            send(s, buf, len, 0);
+        }
+        
+        if((len = recv(s, recv_msg, sizeof(recv_msg), 0)) > 0){
+            fputs(recv_msg, stdout);
+            if (strcmp(recv_msg, "LOGOUT\n") == 0) {
+                close(s);
+                exit(1);
+            }
+            printf("$[%s] ", username);
+        }
+        
+    }
+}
 
-	    if((len = recv(s, recv_msg, sizeof(recv_msg), 0)) > 0){
-	        fputs(recv_msg, stdout);
-	        if (strcmp(recv_msg, "LOGOUT\n") == 0) {
-	            close(s);
-	            exit(1);
-	        }
-	        printf("$[%s] ", username);
-	    }
+void unblockFiles(FILE *file) {
+    
+    int flags;
+    
+    flags = fcntl(fileno(stdin), F_GETFL, 0);
+    flags |= O_NONBLOCK;
+    fcntl(fileno(stdin), F_SETFL, flags);
+}
 
-	}
+void unblockFileDescriptors(int fd){
+    
+    int flags;
+    
+    flags = fcntl(fd, F_GETFL, 0);
+    flags |= O_NONBLOCK;
+    fcntl(fd, F_SETFL, flags);
 }

@@ -61,7 +61,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "usage: ./server port\n");
         exit(1);
     }
-
+    
     for(int a = 0; a < 10; a++){
         for(int b = 0; b < FD_SETSIZE; b++){
             chatgroups[a][b].fd = 0;
@@ -78,7 +78,7 @@ int main(int argc, char **argv)
     for(int x = 0; x < 10; x++){
         chatgroupnames[x][0] = '\0';
     }
-
+    
     bzero(&servaddr, sizeof(servaddr)); /* Sets to zero the first sizeof(servaddr) bytes of memory starting at &servaddr */
     servaddr.sin_family      = AF_INET; /* Specifies that the address of the socket will be of IPV4 family */
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY); /* Specifies the socket will be binded to all local interfaces (ifconfig to check interfaces). htonl converts host byte order to network byte order) */
@@ -154,78 +154,78 @@ int main(int argc, char **argv)
                     //                    strcpy(usernames[i], "");
                 } else {
                     if ((isSendMessage(buf) == 1)) {
-
+                        
                         const char *emitter = getUsernameFromFd(clients, sockfd);
                         char aux_emitter[MAXLINE];
                         strcpy(aux_emitter,emitter);
-
+                        
                         char receiver[MAXLINE];
                         const char s[2] = " ";
                         strcpy(msg_aux, buf);
                         token = strtok(msg_aux, s);
                         token = strtok(NULL, s);
                         strcpy(receiver, token);
-
-
+                        
+                        
                         token = strtok(NULL, s);
                         strcpy (msg_aux, token);
-
+                        
                         //send message
                         sendMessageTo(clients, aux_emitter,msg_aux,receiver);
                         send(sockfd, "Enviou mensagem com sucesso\n", sizeof("Enviou mensagem com sucesso\n"), 0);
-              
+                        
                     } else if ((isCreateGroup(buf) == 1)) {
-
+                        
                         const char *emitter = getUsernameFromFd(clients, sockfd);
                         char aux_emitter[MAXLINE];
                         strcpy(aux_emitter,emitter);
-
+                        
                         char groupname[MAXLINE];
                         const char s[2] = " ";
                         strcpy(msg_aux, buf);
                         token = strtok(msg_aux, s);
                         token = strtok(NULL, s);
                         strcpy(groupname, token);
-
+                        
                         createGroup(clients, groupname, aux_emitter);
-
+                        
                         send(sockfd, "Grupo criado com sucesso\n", sizeof("Grupo criado com sucesso\n"), 0);
-
+                        
                     } else if ((isJoinGroup(buf) == 1)) {
-
+                        
                         const char *emitter = getUsernameFromFd(clients, sockfd);
                         char aux_emitter[MAXLINE];
                         strcpy(aux_emitter,emitter);
-
+                        
                         char groupname[MAXLINE];
                         const char s[2] = " ";
                         strcpy(msg_aux, buf);
                         token = strtok(msg_aux, s);
                         token = strtok(NULL, s);
                         strcpy(groupname, token);
-
+                        
                         joinGroup(clients, groupname, aux_emitter);
-
+                        
                         send(sockfd, "Entrou no grupo com sucesso\n", sizeof("Entrou no grupo com sucesso\n"), 0);
-
+                        
                     } else if ((isSendGroup(buf) == 1)) {
-
+                        
                         const char *emitter = getUsernameFromFd(clients, sockfd);
                         char aux_emitter[MAXLINE];
                         strcpy(aux_emitter,emitter);
-
+                        
                         char groupname[MAXLINE];
                         const char s[2] = " ";
                         strcpy(msg_aux, buf);
                         token = strtok(msg_aux, s);
                         token = strtok(NULL, s);
                         strcpy(groupname, token);
-
+                        
                         token = strtok(NULL, s);
                         strcpy (msg_aux, token);
-
+                        
                         sendGroupMessage(clients, groupname, aux_emitter, msg_aux);
-
+                        
                         send(sockfd, "Enviou mensagem no grupo com sucesso\n", sizeof("Enviou mensagem no grupo com sucesso\n"), 0);
                         
                     } else if (strcmp(buf, "WHO\n") == 0) {
@@ -240,7 +240,7 @@ int main(int argc, char **argv)
                                 strcat(who_msg, "offline\n");
                         }
                         send(sockfd, who_msg, sizeof(who_msg), 0);
-
+                        
                     } else if (strcmp(buf, "EXIT\n") == 0) {
                         
                         send(sockfd, "LOGOUT\n", sizeof("LOGOUT\n"), 0);
@@ -263,46 +263,46 @@ int main(int argc, char **argv)
 
 void createGroup(client clients[FD_SETSIZE], char groupname[MAXLINE], char creator_username[MAXLINE]){
     client creator = getClientFromUsername(clients, creator_username);
-
+    
     for(int c = 0; c < MAXLINE; c++){
         if(groupname[c] == '\n') groupname[c] = '\0';
     }
-
+    
     for(int i = 0; i < 10; i++){
         if(chatgroupnames[i][0] == '\0'){
-           chatgroups[i][0] = creator;
-           strcpy(chatgroupnames[i], groupname);
-           printf("%s\n", chatgroupnames[i]);
-           printf("%s\n", chatgroups[i][0].username);
-           return;
+            chatgroups[i][0] = creator;
+            strcpy(chatgroupnames[i], groupname);
+            printf("%s\n", chatgroupnames[i]);
+            printf("%s\n", chatgroups[i][0].username);
+            return;
         }
     }
 }
 
 void joinGroup(client clients[FD_SETSIZE], char groupname[MAXLINE], char username[MAXLINE]){
     client join_client = getClientFromUsername(clients, username);
-
+    
     for(int c = 0; c < MAXLINE; c++){
         if(groupname[c] == '\n') groupname[c] = '\0';
     }
-
+    
     for(int i = 0; i < 10; i++){
         if(strcmp(groupname, chatgroupnames[i]) == 0){
-           for(int x = 0; x < FD_SETSIZE; x++){
+            for(int x = 0; x < FD_SETSIZE; x++){
                 if(chatgroups[i][x].fd == 0){
                     chatgroups[i][x] = join_client;
                     printf("%s\n", chatgroups[i][x].username);
                     printf("%s\n", chatgroupnames[i]);
                     return;
                 }
-           } 
+            }
         }
     }
-
+    
 }
 
 void sendGroupMessage(client clients[FD_SETSIZE], char groupname[MAXLINE], char username[MAXLINE], char message[MAXLINE]){
-
+    
     for(int i = 0; i < 10; i++){
         if(strcmp(groupname, chatgroupnames[i]) == 0){
             for(int x = 0; x < FD_SETSIZE; x++){
@@ -326,7 +326,7 @@ void sendGroupMessageTo(client clients[FD_SETSIZE], char username_from[MAXLINE],
 }
 
 client getClientFromUsername(client clients[FD_SETSIZE], char username[MAXLINE]){
-    client aux;
+    client aux = { -1, "", false};
     for(int i = 0; i < FD_SETSIZE; i++){
         if(strcmp(clients[i].username, username) == 0){
             return clients[i];
@@ -355,7 +355,7 @@ int getFdFromUsername(client clients[FD_SETSIZE], char username[MAXLINE]){
 
 void sendMessageTo(client clients[FD_SETSIZE], char username_from[MAXLINE], char message[MAXLINE], char username_to[MAXLINE]){
     int targetFd = getFdFromUsername(clients, username_to);
-    char send_message[MAXLINE] = "[";
+    char send_message[MAXLINE] = "\n[";
     strcat(send_message, username_from);
     strcat(send_message, ">] ");
     strcat(send_message, message);
@@ -422,14 +422,14 @@ int getClientData(client *clients, char *buf, int connfd) {
     char bufsend[MAXLINE];
     
     for (i = 0; i < FD_SETSIZE; i++) {
-    
+        
         if (n == 0) { /* Test to guarantee it will read only once */
             if ( (n = read(connfd, buf, MAXLINE)) == 0) {
                 close(connfd);
                 clients[i].fd = -1;
             }
         }
-    
+        
         if (clients[i].fd < 0) {
             
             if (strcmp(clients[i].username, "") == 0) { /* New User */
