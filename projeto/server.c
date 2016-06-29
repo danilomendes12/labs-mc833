@@ -12,12 +12,19 @@
 #define LISTENQ 5
 #define MAXLINE 64
 #define SERV_PORT 56789
+#define MAX_STORED_MESSAGES 50
 
 typedef struct client{ /* represents a client */
     int fd;
     char username[MAXLINE];
     bool status;    /* false: offline, true: online */
 }client;
+
+typedef struct stored_message{ /* represents a client */
+    char message[MAXLINE];
+    char username_from[MAXLINE];
+    char username_to[MAXLINE];    /* false: offline, true: online */
+}stored_message;
 
 int getClientData(client *, char *, int);
 int isSendMessage(char[]);
@@ -27,16 +34,18 @@ int isSendGroup(char[]);
 void sendMessageTo(client[], char[],char[],char[]);
 const char * getUsernameFromFd(client[], int);
 int getFdFromUsername(client[], char[]);
-void createGroup(client[], char[], char[]);
-void joinGroup(client[], char[], char[]);
-void sendGroupMessage(client[], char[], char[], char[]);
+int createGroup(client[], char[], char[]);
+int joinGroup(client[], char[], char[]);
+int sendGroupMessage(client[], char[], char[], char[]);
 client getClientFromUsername(client[], char[]);
 void sendGroupMessageTo(client[], char[], char[], char[], char[]);
+unsigned long hash(unsigned char *);
 
 
 
 client              chatgroups[10][FD_SETSIZE];
 char                chatgroupnames[10][MAXLINE];
+stored_message      stored_messages[MAX_STORED_MESSAGES];
 
 
 int main(int argc, char **argv)
@@ -50,6 +59,7 @@ int main(int argc, char **argv)
     char				buf[MAXLINE];
     char                msg_aux[MAXLINE];
     char                who_msg[MAXLINE];
+    char                send_msg[MAXLINE];
     char                *svport = NULL;
     char                *token = NULL;
     socklen_t			clilen;
@@ -66,6 +76,12 @@ int main(int argc, char **argv)
         for(int b = 0; b < FD_SETSIZE; b++){
             chatgroups[a][b].fd = 0;
         }
+    }
+
+    for(int j = 0; j < MAX_STORED_MESSAGES; j++){
+        strcpy(stored_messages[j].username_from, "");
+        strcpy(stored_messages[j].username_to, "");
+        strcpy(stored_messages[j].message, "");
     }
     
     int portnumber = atoi(svport);
@@ -165,14 +181,20 @@ int main(int argc, char **argv)
                         token = strtok(msg_aux, s);
                         token = strtok(NULL, s);
                         strcpy(receiver, token);
-                        
-                        
+
                         token = strtok(NULL, s);
-                        strcpy (msg_aux, token);
+
+                        strcpy(send_msg, "");
+                        while(token != NULL){
+                            strcat (send_msg, token);
+                            strcat(send_msg, " ");
+                            token = strtok(NULL, s);
+                        }
+
+                        send_msg[(strlen(send_msg)-1)] = '\0';
                         
                         //send message
-                        sendMessageTo(clients, aux_emitter,msg_aux,receiver);
-                        send(sockfd, "Enviou mensagem com sucesso\n", sizeof("Enviou mensagem com sucesso\n"), 0);
+                        sendMessageTo(clients, aux_emitter,send_msg,receiver);
                         
                     } else if ((isCreateGroup(buf) == 1)) {
                         
@@ -187,9 +209,16 @@ int main(int argc, char **argv)
                         token = strtok(NULL, s);
                         strcpy(groupname, token);
                         
-                        createGroup(clients, groupname, aux_emitter);
+                        int has_created = createGroup(clients, groupname, aux_emitter);
+
+                        if(has_created == 1){
+                            send(sockfd, "Grupo criado com sucesso\n", sizeof("Grupo criado com sucesso\n"), 0);
+                        }else if(has_created == 2){
+                            send(sockfd, "Ja existe grupo com esse nome\n", sizeof("Ja existe grupo com esse nome\n"), 0);
+                        } else {
+                            send(sockfd, "Grupo criado com sucesso\n", sizeof("Grupo criado com sucesso\n"), 0);
+                        }
                         
-                        send(sockfd, "Grupo criado com sucesso\n", sizeof("Grupo criado com sucesso\n"), 0);
                         
                     } else if ((isJoinGroup(buf) == 1)) {
                         
@@ -204,9 +233,14 @@ int main(int argc, char **argv)
                         token = strtok(NULL, s);
                         strcpy(groupname, token);
                         
-                        joinGroup(clients, groupname, aux_emitter);
+                        int has_joined = joinGroup(clients, groupname, aux_emitter);
+
+                        if(has_joined == 1){
+                            send(sockfd, "Entrou no grupo com sucesso\n", sizeof("Entrou no grupo com sucesso\n"), 0);
+                        }else{
+                            send(sockfd, "Não foi possivel entrar no grupo\n", sizeof("Não foi possivel entrar no grupo\n"), 0);
+                        }
                         
-                        send(sockfd, "Entrou no grupo com sucesso\n", sizeof("Entrou no grupo com sucesso\n"), 0);
                         
                     } else if ((isSendGroup(buf) == 1)) {
                         
@@ -220,13 +254,24 @@ int main(int argc, char **argv)
                         token = strtok(msg_aux, s);
                         token = strtok(NULL, s);
                         strcpy(groupname, token);
-                        
+
                         token = strtok(NULL, s);
-                        strcpy (msg_aux, token);
                         
-                        sendGroupMessage(clients, groupname, aux_emitter, msg_aux);
-                        
-                        send(sockfd, "Enviou mensagem no grupo com sucesso\n", sizeof("Enviou mensagem no grupo com sucesso\n"), 0);
+                        strcpy(send_msg, "");
+                        while(token != NULL){
+                            strcat (send_msg, token);
+                            strcat(send_msg, " ");
+                            token = strtok(NULL, s);
+                        }
+
+                        send_msg[(strlen(send_msg)-1)] = '\0';
+
+                        int has_sent = sendGroupMessage(clients, groupname, aux_emitter, send_msg);
+                        if(has_sent == 1){
+                            send(sockfd, "Enviou mensagem no grupo com sucesso\n", sizeof("Enviou mensagem no grupo com sucesso\n"), 0);
+                        }else{
+                            send(sockfd, "Grupo nao foi encontrado\n", sizeof("Grupo nao foi encontrado\n"), 0);
+                        }
                         
                     } else if (strcmp(buf, "WHO\n") == 0) {
                         
@@ -250,8 +295,7 @@ int main(int argc, char **argv)
                         clients[i].status = false;
                         printf("LOGOUT %s\n", clients[i].username);
                     } else {
-                        fputs(buf, stdout);
-                        send(sockfd, "Message printed on the server\n", sizeof("Message printed on the server\n"), 0);
+                        send(sockfd, "Mensagem invalida\n", sizeof("Mensagem invalida\n"), 0);
                     }
                 }
                 if (--nready <= 0)
@@ -261,25 +305,29 @@ int main(int argc, char **argv)
     }
 }
 
-void createGroup(client clients[FD_SETSIZE], char groupname[MAXLINE], char creator_username[MAXLINE]){
+int createGroup(client clients[FD_SETSIZE], char groupname[MAXLINE], char creator_username[MAXLINE]){
     client creator = getClientFromUsername(clients, creator_username);
     
     for(int c = 0; c < MAXLINE; c++){
         if(groupname[c] == '\n') groupname[c] = '\0';
     }
-    
+
     for(int i = 0; i < 10; i++){
+        if(strcmp(chatgroupnames[i], groupname)==0){
+            return 2;
+        }
         if(chatgroupnames[i][0] == '\0'){
             chatgroups[i][0] = creator;
             strcpy(chatgroupnames[i], groupname);
-            printf("%s\n", chatgroupnames[i]);
-            printf("%s\n", chatgroups[i][0].username);
-            return;
+            printf("%s criou o grupo %s\n", chatgroups[i][0].username, chatgroupnames[i]);
+            return 1;
         }
     }
+
+    return 0;
 }
 
-void joinGroup(client clients[FD_SETSIZE], char groupname[MAXLINE], char username[MAXLINE]){
+int joinGroup(client clients[FD_SETSIZE], char groupname[MAXLINE], char username[MAXLINE]){
     client join_client = getClientFromUsername(clients, username);
     
     for(int c = 0; c < MAXLINE; c++){
@@ -291,31 +339,34 @@ void joinGroup(client clients[FD_SETSIZE], char groupname[MAXLINE], char usernam
             for(int x = 0; x < FD_SETSIZE; x++){
                 if(chatgroups[i][x].fd == 0){
                     chatgroups[i][x] = join_client;
-                    printf("%s\n", chatgroups[i][x].username);
-                    printf("%s\n", chatgroupnames[i]);
-                    return;
+                    printf("Usuário %s entrou no grupo %s\n", chatgroups[i][x].username, chatgroupnames[i]);
+                    return 1;
                 }
             }
         }
     }
-    
+
+    return 0;
 }
 
-void sendGroupMessage(client clients[FD_SETSIZE], char groupname[MAXLINE], char username[MAXLINE], char message[MAXLINE]){
+int sendGroupMessage(client clients[FD_SETSIZE], char groupname[MAXLINE], char username[MAXLINE], char message[MAXLINE]){
     
     for(int i = 0; i < 10; i++){
         if(strcmp(groupname, chatgroupnames[i]) == 0){
             for(int x = 0; x < FD_SETSIZE; x++){
                 if(chatgroups[i][x].fd != 0) sendGroupMessageTo(clients, username, message, chatgroups[i][x].username, groupname);
             }
+            return 1;
         }
     }
+
+    return 0;
 }
 
 
 void sendGroupMessageTo(client clients[FD_SETSIZE], char username_from[MAXLINE], char message[MAXLINE], char username_to[MAXLINE], char name[MAXLINE]){
     int targetFd = getFdFromUsername(clients, username_to);
-    char send_message[MAXLINE] = "[";
+    char send_message[MAXLINE] = "$[";
     strcat(send_message, username_from);
     strcat(send_message, "@");
     strcat(send_message, name);
@@ -353,14 +404,39 @@ int getFdFromUsername(client clients[FD_SETSIZE], char username[MAXLINE]){
     return 0;
 }
 
+bool getStatusFromFd(client clients[FD_SETSIZE], int fd){
+    for(int i = 0; i < FD_SETSIZE; i++){
+        if(clients[i].fd == fd){
+            return clients[i].status;
+        }
+    }
+    return false;
+}
+
 void sendMessageTo(client clients[FD_SETSIZE], char username_from[MAXLINE], char message[MAXLINE], char username_to[MAXLINE]){
-    int targetFd = getFdFromUsername(clients, username_to);
-    char send_message[MAXLINE] = "\n[";
+    char send_message[MAXLINE] = "\n$[";
     strcat(send_message, username_from);
     strcat(send_message, ">] ");
     strcat(send_message, message);
     fputs(send_message, stdout);
-    send(targetFd, send_message, sizeof(send_message), 0);
+
+    int destFd = getFdFromUsername(clients, username_to);
+    int srcFd = getFdFromUsername(clients, username_from);
+
+    if(getStatusFromFd(clients, destFd) == true){
+        send(destFd, send_message, sizeof(send_message), 0);
+        send(srcFd, "Mensagem enviada ao destinatário com sucesso\n", sizeof("Mensagem enviada com sucesso\n"), 0);
+    }else{
+        for(int j = 0; j < MAX_STORED_MESSAGES; j++){
+            if(strcmp(stored_messages[j].username_to, "") == 0){
+                strcpy(stored_messages[j].username_to, username_to);
+                strcpy(stored_messages[j].username_from, username_from);
+                strcpy(stored_messages[j].message, message);
+                break;
+            }   
+        }
+        send(srcFd, "Usuario esta offline, mensagem armazenada no servidor\n", sizeof("Usuario esta offline, mensagem armazenada no servidor\n"), 0);
+    }
 }
 
 int isSendMessage(char send_msg[MAXLINE]){
@@ -420,6 +496,7 @@ int getClientData(client *clients, char *buf, int connfd) {
     int i;
     ssize_t n = 0;
     char bufsend[MAXLINE];
+    char send_message[MAXLINE] = "";
     
     for (i = 0; i < FD_SETSIZE; i++) {
         
@@ -440,6 +517,19 @@ int getClientData(client *clients, char *buf, int connfd) {
                 strcpy(bufsend, "Welcome, ");
                 strcat(bufsend, clients[i].username);
                 strcat(bufsend, "!\n");
+
+                for(int j = 0; j < MAX_STORED_MESSAGES; j++){
+                    if(strcmp(stored_messages[j].username_to, clients[i].username) == 0){
+                        strcat(send_message, "$[");
+                        strcat(send_message, stored_messages[j].username_from);
+                        strcat(send_message, ">] ");
+                        strcat(send_message, stored_messages[j].message);
+                        strcpy(stored_messages[j].username_from, "");
+                        strcpy(stored_messages[j].username_to, "");
+                        strcpy(stored_messages[j].message, "");
+                    }
+                }
+
                 break;
             } else if (strcmp(clients[i].username, buf) == 0) { /* Old user logging in, checks if this is the correct position for this user */
                 clients[i].fd = connfd;
@@ -448,6 +538,18 @@ int getClientData(client *clients, char *buf, int connfd) {
                 strcpy(bufsend, "Welcome Back, ");
                 strcat(bufsend, clients[i].username);
                 strcat(bufsend, "!\n");
+
+                for(int j = 0; j < MAX_STORED_MESSAGES; j++){
+                    if(strcmp(stored_messages[j].username_to, clients[i].username) == 0){
+                        strcat(send_message, "$[");
+                        strcat(send_message, stored_messages[j].username_from);
+                        strcat(send_message, ">] ");
+                        strcat(send_message, stored_messages[j].message);
+                        strcpy(stored_messages[j].username_from, "");
+                        strcpy(stored_messages[j].username_to, "");
+                        strcpy(stored_messages[j].message, "");
+                    }
+                }
                 break;
             }
         } else if (strcmp(clients[i].username, buf) == 0) { /* Check if the username is already taken */
@@ -455,7 +557,10 @@ int getClientData(client *clients, char *buf, int connfd) {
             break;
         }
     }
-    
+
+    if(strcmp(send_message, "") != 0){
+        send(connfd, send_message, sizeof(send_message), 0);
+    }
     send(connfd, bufsend, sizeof(bufsend), 0);
     
     return i;
