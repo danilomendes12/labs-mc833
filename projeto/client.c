@@ -13,16 +13,13 @@
 #define SERVER_PORT 56789
 #define MAX_LINE 256
 
-void unblockFiles(FILE *);
-void unblockFileDescriptors(int);
+//void unblockFiles(FILE *);
+//void unblockFileDescriptors(int);
 
 int main(int argc, char * argv[]){
     
-    //    FILE *fp;
     struct hostent *hp;
     struct sockaddr_in sin;
-    //    int addrlen = sizeof(end);
-    //    char local_ip_buf[INET_ADDRSTRLEN]; /* buf size for IPV4 only */
     char *host;
     char *svport = NULL;
     char *username;
@@ -31,8 +28,8 @@ int main(int argc, char * argv[]){
     char login_msg[MAX_LINE];
     int s;
     long len;
-    //    int login = 0;
-    int portnumber;
+    int portnumber, nready, maxfd;
+    fd_set rset, allset;
     
     if (argc==4) {
         host = argv[1];
@@ -83,47 +80,78 @@ int main(int argc, char * argv[]){
         } else {
             perror("Server not found");
         }
-        printf("$[%s] ", username);
+        fprintf(stderr, "$[%s] ", username);
     }
     
-    unblockFiles(stdin);
-    unblockFileDescriptors(s);
+    //    unblockFiles(stdin);
+    //    unblockFileDescriptors(s);
+    
+    if (fileno(stdin) > s) maxfd = fileno(stdin);
+    else maxfd = s;
+    
+    FD_ZERO(&allset); /* Initializes the file descriptors of the file descriptors set allset with 0 bits */
+    FD_SET(s, &allset); /* Adds listenfd to the file descriptor set allset */
+    FD_SET(fileno(stdin), &allset);
     
     /* main loop: get and send lines of text */
     while(1){
         
-        if(fgets(buf, sizeof(buf), stdin) != NULL) {
-            buf[MAX_LINE-1] = '\0';
-            len = strlen(buf) + 1;
-            send(s, buf, len, 0);
+        rset = allset;		/* structure assignment */
+        
+        //        printf("$[%s] ", username);
+        
+        if((nready = select(maxfd+1, &rset, NULL, NULL, NULL)) == 0){
+            close(s);
+            return 1;
         }
         
-        if((len = recv(s, recv_msg, sizeof(recv_msg), 0)) > 0){
-            fputs(recv_msg, stdout);
-            if (strcmp(recv_msg, "LOGOUT\n") == 0) {
-                close(s);
-                exit(1);
+        if (FD_ISSET(fileno(stdin), &rset)) {
+            
+            if(fgets(buf, sizeof(buf), stdin) != NULL) {
+                buf[MAX_LINE-1] = '\0';
+                len = strlen(buf) + 1;
+                send(s, buf, len, 0);
             }
-            printf("$[%s] ", username);
+            if (fileno(stdin) > maxfd) maxfd = fileno(stdin);
+            //            fprintf(stderr, "$[%s] ", username);
+            
+            if (--nready <= 0)
+                continue;				/* no more readable descriptors */
+        }
+        
+        if (FD_ISSET(s, &rset)) {
+            if((len = recv(s, recv_msg, sizeof(recv_msg), 0)) > 0){
+                fputs(recv_msg, stdout);
+                if (strcmp(recv_msg, "LOGOUT\n") == 0) {
+                    close(s);
+                    exit(1);
+                }
+            }
+            fprintf(stderr, "$[%s] ", username);
+            if (s > maxfd) maxfd = s;
+            
+            if (--nready <= 0)
+                continue;				/* no more readable descriptors */
+            
         }
         
     }
 }
 
-void unblockFiles(FILE *file) {
-    
-    int flags;
-    
-    flags = fcntl(fileno(stdin), F_GETFL, 0);
-    flags |= O_NONBLOCK;
-    fcntl(fileno(stdin), F_SETFL, flags);
-}
-
-void unblockFileDescriptors(int fd){
-    
-    int flags;
-    
-    flags = fcntl(fd, F_GETFL, 0);
-    flags |= O_NONBLOCK;
-    fcntl(fd, F_SETFL, flags);
-}
+//void unblockFiles(FILE *file) {
+//
+//    int flags;
+//
+//    flags = fcntl(fileno(stdin), F_GETFL, 0);
+//    flags |= O_NONBLOCK;
+//    fcntl(fileno(stdin), F_SETFL, flags);
+//}
+//
+//void unblockFileDescriptors(int fd){
+//
+//    int flags;
+//
+//    flags = fcntl(fd, F_GETFL, 0);
+//    flags |= O_NONBLOCK;
+//    fcntl(fd, F_SETFL, flags);
+//}
