@@ -366,7 +366,7 @@ int sendGroupMessage(client clients[FD_SETSIZE], char groupname[MAXLINE], char u
 
 void sendGroupMessageTo(client clients[FD_SETSIZE], char username_from[MAXLINE], char message[MAXLINE], char username_to[MAXLINE], char name[MAXLINE]){
     int targetFd = getFdFromUsername(clients, username_to);
-    char send_message[MAXLINE] = "$[";
+    char send_message[MAXLINE] = "\n$[";
     strcat(send_message, username_from);
     strcat(send_message, "@");
     strcat(send_message, name);
@@ -425,7 +425,7 @@ void sendMessageTo(client clients[FD_SETSIZE], char username_from[MAXLINE], char
 
     if(getStatusFromFd(clients, destFd) == true){
         send(destFd, send_message, sizeof(send_message), 0);
-        send(srcFd, "Mensagem enviada ao destinatário com sucesso\n", sizeof("Mensagem enviada com sucesso\n"), 0);
+        send(srcFd, "Mensagem enviada com sucesso\n", sizeof("Mensagem enviada com sucesso\n"), 0);
     }else{
         for(int j = 0; j < MAX_STORED_MESSAGES; j++){
             if(strcmp(stored_messages[j].username_to, "") == 0){
